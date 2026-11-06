@@ -129,6 +129,28 @@ Each run first checks that every `.gt.txt` file holds exactly the text of its
 row in `transcription.tsv`. A test does the same check on the committed part 1
 ground truth.
 
+## Measurements
+
+All numbers are for the 99 part 1 ground truth lines, read with the stock
+`lat` model on the development laptop (Windows, Tesseract 5.5.3). Every change
+to the reading is judged against the last row.
+
+| Reading | All 99 lines | 77 lines not UNCERTAIN |
+|---|---|---|
+| Mode 7 for each line | 21.03 % (937 of 4456) | 18.26 % (633 of 3466) |
+| Mode 7, then mode 13 if empty | 17.93 % (799 of 4456) | 15.18 % (526 of 3466) |
+
+Mode 7 gave no text for 5 lines. Three were clean lines, which mode 13 read.
+The other two are lines where the other side of the leaf shows through, and
+mode 13 gives noise for them. The docstring of `src\verso\tesseract.py` gives
+the detail.
+
+The most frequent error is the long s read as f: 116 times, in 252 letters s
+of the transcription. That is about 2.6 points of CER. The other errors are
+mostly single letters lost or changed by the damage of the scan, for example
+a lost space (34), u read as a (19), a full stop read as a comma (18), and æ
+read as e (17).
+
 ## Tests
 
 ```powershell
