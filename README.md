@@ -78,14 +78,33 @@ rate measured against the ground truth.
   the letter and then the combining tilde, U+0303. Write the ampersand as &.
 - Write the ligatures ct and st as two letters.
 - Keep the punctuation as printed, and keep the hyphen at the end of a line.
-- Put one space between words. Put no space before , . : ; ? ! or ), and
-  none after (. The printer often put a space before a colon, but the width
-  of a space cannot be read well, so it is not recorded.
+- Keep square brackets as printed. The edition puts them around the words of
+  the Gospel that the commentary takes up.
+- Put one space between words. Put no space before , . : ; ? ! ) or ], and
+  none after ( or [. The printer often put a space before a colon, but the
+  width of a space cannot be read well, so it is not recorded.
 - Do not mark italic or large type.
 - Do not write marks in the margin, specks, or bits of the lines above and
   below.
 - If an image holds no text, or holds two lines, or holds a sign that these
   rules do not cover, delete its two files.
+
+### The record of the transcription
+
+Each folder of ground truth holds `transcription.tsv`, the hand transcription
+as it was made, with four columns: `file`, `text`, `status` and `note`. The
+`.gt.txt` files hold the same text, one line each. The status of a line is
+one of these:
+
+| Status | Meaning |
+|---|---|
+| OK | A clean read. |
+| BRACKET | A clean read of a line with square brackets. |
+| UNCERTAIN | The best reading. The note names the doubtful part. |
+| DELETE | The line holds a sign that the rules do not cover. Its image and its `.gt.txt` file are deleted. The row stays, so the record is complete. |
+
+The part 1 lines were read from the images before any OCR output was looked
+at, so the drafts did not bias them.
 
 ## Tests
 
