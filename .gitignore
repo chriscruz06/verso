@@ -1,0 +1,33 @@
+# Source scans and working output.
+# The scans and recto's column images are large and come again from the PDFs,
+# so they stay out of the repository. The ground truth lines are committed,
+# because they are hand work that cannot be made again.
+*.pdf
+work/
+out/
+debug/
+scans/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
