@@ -14,24 +14,78 @@ translation is a separate, later stage.
 
 ## Status
 
-This is the start of the project. The command line runs, but it has no
-subcommands yet.
+Verso can make the ground truth: a sample of line images with OCR drafts to
+correct by hand. Measuring the error rate and reading a whole part are the
+next steps.
 
 ## Install
 
-Python 3.11 or newer. Recto must be cloned beside verso, because verso uses
-its line finder. Install recto from that clone, so that a change to recto is
-seen here at once.
+Python 3.11 or newer, and Tesseract on PATH with the `lat` language data.
+
+Verso uses recto's line finder, and pip gets recto from GitHub. If recto is
+cloned beside verso, install that clone last, so that a change to recto is
+seen here at once. If you install verso again later, install recto again after
+it, because pip can replace the clone with the copy from GitHub.
 
 ```powershell
 git clone https://github.com/chriscruz06/verso.git
 cd verso
 python -m venv .venv
 .venv\Scripts\Activate.ps1
-pip install -e ..\recto
 pip install -e ".[dev]"
+pip install -e ..\recto
 verso --help
 ```
+
+## Use
+
+### Make the ground truth
+
+Accuracy can only be measured against lines that a person has checked.
+`verso lines` cuts lines from some columns of a recto output folder, and
+writes each line as an image and a text file with Tesseract's draft:
+
+```powershell
+verso lines ..\recto\out\part1 --column p0013-verso-c1 --column p0020-recto-c2 --column p0030-verso-c2 --column p0045-recto-c1 --column p0060-verso-c1
+```
+
+This takes 20 lines from each column, at even spacing, and writes them to
+`groundtruth\part1`:
+
+    p0013-verso-c1-l039.png      the line image
+    p0013-verso-c1-l039.gt.txt   the draft, to correct by hand
+
+The names follow the Tesseract training format. Open each image, and make its
+text file say what is printed. A pair that is already there is never written
+again, so a second run does not change corrected lines. The ground truth comes
+from part 1 only. Parts 2 to 4 are kept to check each change.
+
+The lines are found with recto's `band_column`. Tesseract's own line finder
+was tried first, and on the bold, fused lines of p13 verso it gave overlapping
+boxes and empty lines.
+
+### Transcription rules
+
+These rules set what a correct line is. A change to them changes every error
+rate measured against the ground truth.
+
+- Write the long s (ſ) as s.
+- Keep æ and œ as printed. Where the printer set a and e apart, write ae.
+- Keep u, v, i and j as printed. Do not change them to the modern use.
+- Keep accents as printed, for example à, è and ë.
+- Keep abbreviations as printed. Write a tilde or a bar over a letter as that
+  letter with a tilde: ã, ẽ, ĩ, õ, ũ, ñ. If there is no such letter, write
+  the letter and then the combining tilde, U+0303. Write the ampersand as &.
+- Write the ligatures ct and st as two letters.
+- Keep the punctuation as printed, and keep the hyphen at the end of a line.
+- Put one space between words. Put no space before , . : ; ? ! or ), and
+  none after (. The printer often put a space before a colon, but the width
+  of a space cannot be read well, so it is not recorded.
+- Do not mark italic or large type.
+- Do not write marks in the margin, specks, or bits of the lines above and
+  below.
+- If an image holds no text, or holds two lines, or holds a sign that these
+  rules do not cover, delete its two files.
 
 ## Tests
 

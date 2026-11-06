@@ -26,6 +26,9 @@ classifiers = [
 # install stays honest about what the code actually imports.
 dependencies = [
     "click>=8.1",
+    "numpy>=1.26",
+    "opencv-python-headless>=4.9",
+    "recto @ git+https://github.com/chriscruz06/recto.git",
 ]
 
 [project.optional-dependencies]
