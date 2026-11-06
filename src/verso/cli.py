@@ -15,10 +15,14 @@ import click
 import numpy as np
 from recto.ocrcheck import TesseractError, find_tesseract
 
+from recto.pngio import read_png
+
 from verso import __version__
+from verso.cer import LineScore, Total, score_line, total
 from verso.groundtruth import draft
 from verso.manifest import ManifestError, read_columns
 from verso.tesseract import read_line
+from verso.transcription import TranscriptionError, read_record
 
 # Accept -h as well as --help, as recto does.
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
@@ -131,3 +135,124 @@ def lines_command(
     click.echo(f"{report.written} new pairs, {report.kept} kept, in {target}")
     for column in report.short:
         click.echo(f"fewer lines than --count: {column}")
+
+
+def _show(char: str) -> str:
+    """Name one side of an error pair for the reader.
+
+    Args:
+        char: One character, or the empty string for a missing one.
+
+    Returns:
+        The character, or a word for a space or a missing character.
+    """
+    if char == "":
+        return "(none)"
+    if char == " ":
+        return "(space)"
+    return char
+
+
+def _summary(label: str, part: Total) -> str:
+    """Give one line of the summary.
+
+    Args:
+        label: What the lines are.
+        part: Their sum.
+
+    Returns:
+        The line for the reader.
+    """
+    rate = "n/a" if part.rate is None else f"{100 * part.rate:.2f} %"
+    return (
+        f"{label}: {part.lines} lines, {part.length} characters, "
+        f"{part.distance} errors, CER {rate}"
+    )
+
+
+@main.command("cer")
+@click.argument(
+    "gt_dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+)
+@click.option(
+    "--lang",
+    default="lat",
+    show_default=True,
+    help="Tesseract language to measure.",
+)
+@click.option(
+    "--dpi",
+    type=click.IntRange(72, 1200),
+    default=300,
+    show_default=True,
+    help="Resolution of the line images. Recto writes 300 dpi columns.",
+)
+@click.option(
+    "--top",
+    type=click.IntRange(min=0),
+    default=15,
+    show_default=True,
+    help="How many of the most frequent errors to list.",
+)
+@click.option(
+    "--report",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="Write one row for each line to this TSV file.",
+)
+def cer_command(
+    gt_dir: Path,
+    lang: str,
+    dpi: int,
+    top: int,
+    report: Path | None,
+) -> None:
+    """Measure the character error rate of Tesseract on the ground truth.
+
+    GT_DIR is a ground truth folder, for example groundtruth\\part1. Each line
+    image is read with Tesseract and compared with its hand transcription. The
+    rate is given for all lines, and for the lines not marked UNCERTAIN.
+    """
+    try:
+        entries = read_record(gt_dir)
+        tesseract = find_tesseract()
+    except (TranscriptionError, TesseractError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    scores: list[LineScore] = []
+    with tempfile.TemporaryDirectory(prefix="verso-") as work:
+        try:
+            for entry in entries:
+                text = read_line(
+                    read_png(entry.image),
+                    tesseract=tesseract,
+                    lang=lang,
+                    dpi=dpi,
+                    workdir=Path(work),
+                )
+                scores.append(score_line(entry, text))
+        except RuntimeError as exc:
+            # TesseractError is a RuntimeError, and so is a failed image read.
+            raise click.ClickException(str(exc)) from exc
+
+    every = total(scores, lambda s: True)
+    certain = total(scores, lambda s: s.entry.status != "UNCERTAIN")
+    click.echo(_summary("all", every))
+    click.echo(_summary("not UNCERTAIN", certain))
+
+    if top:
+        click.echo(f"most frequent errors, all lines (truth -> {lang}):")
+        for (truth, read), count in every.errors.most_common(top):
+            click.echo(f"  {count:5d}  {_show(truth)} -> {_show(read)}")
+
+    if report is not None:
+        rows = ["file\tstatus\terrors\tlength\ttruth\tread"]
+        for s in scores:
+            rows.append(
+                f"{s.entry.image.name}\t{s.entry.status}\t{s.distance}\t"
+                f"{s.length}\t{s.truth}\t{s.read}"
+            )
+        report.parent.mkdir(parents=True, exist_ok=True)
+        report.write_text("\n".join(rows) + "\n", encoding="utf-8")
+        click.echo(f"line report: {report}")

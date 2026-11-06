@@ -33,3 +33,10 @@ def test_lines_names_an_unknown_column(tmp_path: Path) -> None:
     result = CliRunner().invoke(main, ["lines", str(tmp_path), "--column", "p9999-verso-c1"])
     assert result.exit_code != 0
     assert "p9999-verso-c1" in result.output
+
+
+def test_cer_needs_a_record(tmp_path: Path) -> None:
+    """Check that a folder without transcription.tsv stops before any OCR."""
+    result = CliRunner().invoke(main, ["cer", str(tmp_path)])
+    assert result.exit_code != 0
+    assert "transcription.tsv" in result.output

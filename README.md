@@ -14,9 +14,9 @@ translation is a separate, later stage.
 
 ## Status
 
-Verso can make the ground truth: a sample of line images with OCR drafts to
-correct by hand. Measuring the error rate and reading a whole part are the
-next steps.
+Verso can make the ground truth, a sample of line images with OCR drafts to
+correct by hand, and it can measure the character error rate of Tesseract on
+it. Reading a whole part is the next step.
 
 ## Install
 
@@ -105,6 +105,29 @@ one of these:
 
 The part 1 lines were read from the images before any OCR output was looked
 at, so the drafts did not bias them.
+
+### Measure the error rate
+
+```powershell
+verso cer groundtruth\part1 --report work\cer-part1.tsv
+```
+
+This reads each line image of the ground truth with Tesseract, and compares
+the text with the hand transcription. It gives the character error rate (CER)
+for all lines, and for the lines not marked UNCERTAIN, then the most frequent
+errors, for example `s -> f`. The report has one row for each line, with both
+texts. The `work` folder is in `.gitignore`.
+
+The CER is the edit distance between the two texts, divided by the number of
+characters of the transcription. The distances and the lengths of all lines
+are added up before the division. Before the comparison, both texts get the
+same normalisation: Unicode NFC, one space between words, and no space before
+`, . : ; ? ! ) ]` or after `( [`. The rules do not record those spaces.
+Nothing else is changed, so a long s read as f is an error.
+
+Each run first checks that every `.gt.txt` file holds exactly the text of its
+row in `transcription.tsv`. A test does the same check on the committed part 1
+ground truth.
 
 ## Tests
 
