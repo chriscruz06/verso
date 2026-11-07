@@ -16,7 +16,8 @@ translation is a separate, later stage.
 
 Verso can make the ground truth, a sample of line images with OCR drafts to
 correct by hand, and it can measure the character error rate of Tesseract on
-it. Reading a whole part is the next step.
+it. It can read a whole part into one text file. Joining the words that are
+broken by a hyphen at a line end is the next step.
 
 ## Install
 
@@ -128,6 +129,33 @@ Nothing else is changed, so a long s read as f is an error.
 Each run first checks that every `.gt.txt` file holds exactly the text of its
 row in `transcription.tsv`. A test does the same check on the committed part 1
 ground truth.
+
+### Read a part
+
+```powershell
+verso read ..\recto\out\part1
+```
+
+This reads every column image in the folder, line by line, and writes
+`work\part1-lat.txt`. The text keeps the printed lines: one line of text for
+each line of type. A marker line comes before each column:
+
+    === p0013-verso-c1 ===
+
+The label is also the name of the column image, so each part of the text can
+be found again in recto's output. A page that recto could not do gets a
+marker that says so. A line with no OCR text is written as `{?}`, and the
+command lists each one, so that no line goes missing without a sign. Each
+line gets the spacing normalisation of `verso cer`.
+
+A part is about 19000 lines. One line takes about 0.09 s, so the columns are
+read in parallel, by default one for each CPU. Give `--jobs` to use fewer.
+The text of each finished column is kept in `work\part1\lines-lat`. A run
+that stops goes on from there when you start it again. To read every column
+again, for example after a change to the reading, delete that folder.
+
+The model is in the names of the cache folder and the text file, so the
+output of two models stays apart.
 
 ## Measurements
 

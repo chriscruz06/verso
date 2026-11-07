@@ -8,6 +8,7 @@ tested without click.
 
 from __future__ import annotations
 
+import os
 import tempfile
 from pathlib import Path
 
@@ -20,7 +21,8 @@ from recto.pngio import read_png
 from verso import __version__
 from verso.cer import LineScore, Total, score_line, total
 from verso.groundtruth import draft
-from verso.manifest import ManifestError, read_columns
+from verso.manifest import Column, ManifestError, read_columns
+from verso.reader import pending, read_part
 from verso.tesseract import read_line
 from verso.transcription import TranscriptionError, read_record
 
@@ -256,3 +258,100 @@ def cer_command(
         report.parent.mkdir(parents=True, exist_ok=True)
         report.write_text("\n".join(rows) + "\n", encoding="utf-8")
         click.echo(f"line report: {report}")
+
+
+@main.command("read")
+@click.argument(
+    "out_dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+)
+@click.option(
+    "--dest",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="The text file. Defaults to work\\<name of OUT_DIR>-<lang>.txt.",
+)
+@click.option(
+    "--lang",
+    default="lat",
+    show_default=True,
+    help="Tesseract language.",
+)
+@click.option(
+    "--jobs",
+    type=click.IntRange(min=1),
+    default=None,
+    help="Columns read at the same time. Defaults to the number of CPUs.",
+)
+def read_command(
+    out_dir: Path,
+    dest: Path | None,
+    lang: str,
+    jobs: int | None,
+) -> None:
+    """Read every column of a recto output folder into one text file.
+
+    OUT_DIR is a folder that recto run wrote, for example ..\\recto\\out\\part1.
+    The text keeps the printed lines, with a marker line before each column.
+    The text of each finished column is kept in work, so a stopped run goes
+    on where it stopped. Delete that folder to read every column again.
+    """
+    try:
+        found = read_columns(out_dir)
+        tesseract = find_tesseract()
+    except (ManifestError, TesseractError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    name = out_dir.resolve().name
+    # The language is in the folder name, so a run with another model does
+    # not take the text of this one from the cache.
+    cache = Path("work") / name / f"lines-{lang}"
+    target = dest if dest is not None else Path("work") / f"{name}-{lang}.txt"
+    todo = pending(found, cache)
+    finished = 0
+
+    def read(image: np.ndarray, dpi: int, workdir: Path) -> str:
+        """Read one line image with Tesseract.
+
+        Args:
+            image: The line image.
+            dpi: Its resolution.
+            workdir: A folder for the temporary PNG file.
+
+        Returns:
+            The text.
+        """
+        return read_line(image, tesseract=tesseract, lang=lang, dpi=dpi, workdir=workdir)
+
+    def done(column: Column) -> None:
+        """Report one finished column.
+
+        Args:
+            column: The column.
+        """
+        nonlocal finished
+        finished += 1
+        click.echo(f"  {column.label}  ({finished} of {len(todo)})")
+
+    click.echo(f"{len(found.columns)} columns, {len(todo)} to read; cache {cache}")
+    try:
+        text, progress = read_part(
+            found, cache=cache, read=read, jobs=jobs or os.cpu_count() or 1, done=done
+        )
+    except RuntimeError as exc:
+        # TesseractError is a RuntimeError, and so is a failed image read.
+        raise click.ClickException(str(exc)) from exc
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text, encoding="utf-8")
+    click.echo(
+        f"{progress.read} columns read, {progress.cached} from the cache, "
+        f"{progress.lines} lines, in {target}"
+    )
+    if found.errors:
+        pages = ", ".join(str(p) for p in found.errors)
+        click.echo(f"pages that recto could not do: {pages}")
+    if progress.empty:
+        click.echo(f"{len(progress.empty)} lines with no text, written as {{?}}:")
+        for place in progress.empty:
+            click.echo(f"  {place}")

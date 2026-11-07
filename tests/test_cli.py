@@ -40,3 +40,10 @@ def test_cer_needs_a_record(tmp_path: Path) -> None:
     result = CliRunner().invoke(main, ["cer", str(tmp_path)])
     assert result.exit_code != 0
     assert "transcription.tsv" in result.output
+
+
+def test_read_needs_a_manifest(tmp_path: Path) -> None:
+    """Check that a folder without a manifest stops before any OCR."""
+    result = CliRunner().invoke(main, ["read", str(tmp_path)])
+    assert result.exit_code != 0
+    assert "recto run" in result.output
