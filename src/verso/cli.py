@@ -22,7 +22,7 @@ from verso import __version__
 from verso.cer import LineScore, Total, score_line, total
 from verso.groundtruth import draft
 from verso.longs import LongS, LongSError, default_keep, extract_words
-from verso.manifest import Column, ManifestError, read_columns
+from verso.manifest import Column, ManifestError, read_columns, until
 from verso.reader import pending, read_part
 from verso.tesseract import read_line
 from verso.transcription import TranscriptionError, read_record
@@ -321,12 +321,19 @@ def cer_command(
     default=None,
     help="Columns read at the same time. Defaults to the number of CPUs.",
 )
+@click.option(
+    "--last",
+    metavar="SIDE",
+    default=None,
+    help="Read only up to the end of this page side, for example p0036-verso.",
+)
 @LONG_S_OPTION
 def read_command(
     out_dir: Path,
     dest: Path | None,
     lang: str,
     jobs: int | None,
+    last: str | None,
     long_s: bool,
 ) -> None:
     """Read every column of a recto output folder into one text file.
@@ -335,12 +342,14 @@ def read_command(
     The text keeps the printed lines, with a marker line before each column.
     A word broken by a hyphen at a line end is joined on the first line.
     Then each long s that Tesseract read as f is changed back to s, unless
-    --no-long-s is given.
+    --no-long-s is given. Give --last to stop at the end of one work.
     The text of each finished column is kept in work, so a stopped run goes
     on where it stopped. Delete that folder to read every column again.
     """
     try:
         found = read_columns(out_dir)
+        if last is not None:
+            found = until(found, last)
         tesseract = find_tesseract()
     except (ManifestError, TesseractError) as exc:
         raise click.ClickException(str(exc)) from exc
@@ -379,7 +388,8 @@ def read_command(
         finished += 1
         click.echo(f"  {column.label}  ({finished} of {len(todo)})")
 
-    click.echo(f"{len(found.columns)} columns, {len(todo)} to read; cache {cache}")
+    scope = f" up to the end of {last}" if last is not None else ""
+    click.echo(f"{len(found.columns)} columns{scope}, {len(todo)} to read; cache {cache}")
     try:
         text, progress = read_part(
             found,

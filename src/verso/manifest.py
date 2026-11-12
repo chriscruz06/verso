@@ -14,6 +14,7 @@ reported, because their pages are missing from the text.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -111,3 +112,32 @@ def read_columns(directory: Path) -> Columns:
     result.columns.sort(key=lambda c: (c.page, SIDE_ORDER[c.side], c.column))
     result.errors.sort()
     return result
+
+
+def until(found: Columns, last: str) -> Columns:
+    """Keep the columns up to the end of one page side.
+
+    A part can hold more than one work. In part 3, Super Iohannem ends on
+    p0036-verso, and the indexes and In Apocalypsim come after it.
+
+    Args:
+        found: The columns and the error pages, from read_columns.
+        last: The last page side to keep, for example p0036-verso.
+
+    Returns:
+        The columns up to and including those of that side, and the error
+        pages up to and including its page.
+
+    Raises:
+        ManifestError: If last is not a page side, or if it has no columns.
+    """
+    match = re.fullmatch(r"p(\d+)-(verso|recto)", last)
+    if match is None:
+        raise ManifestError(f"{last} is not a page side, for example p0036-verso")
+    end = (int(match.group(1)), SIDE_ORDER[match.group(2)])
+    columns = [c for c in found.columns if (c.page, SIDE_ORDER[c.side]) <= end]
+    # A side with no columns is blank or was not done, so the run would end
+    # at another place than the one given.
+    if not any((c.page, SIDE_ORDER[c.side]) == end for c in columns):
+        raise ManifestError(f"{last} has no column image in the manifest")
+    return Columns(columns=columns, errors=[p for p in found.errors if p <= end[0]])

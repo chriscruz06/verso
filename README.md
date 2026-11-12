@@ -153,12 +153,27 @@ line gets the spacing normalisation of `verso cer`.
 
 A part is about 19000 lines. One line takes about 0.09 s, so the columns are
 read in parallel, by default one for each CPU. Give `--jobs` to use fewer.
+On the laptop, a first run of part 2 (296 columns, 19539 lines) took 11
+minutes with the default.
 The text of each finished column is kept in `work\part1\lines-lat`. A run
 that stops goes on from there when you start it again. To read every column
 again, for example after a change to the reading, delete that folder.
 
 The model is in the names of the cache folder and the text file, so the
 output of two models stays apart.
+
+A part can hold more than one work. Give `--last` to stop at the end of one
+page side:
+
+```powershell
+verso read ..\recto\out\part3 --last p0036-verso
+```
+
+Super Iohannem ends on part 3 p0036-verso, with "FINIS" across its two
+columns. The indexes and In Apocalypsim come after it, and part 4 holds the
+rest of In Apocalypsim. The side must have a column image, so a blank side
+is refused. The last lines of the text are "FIN", "IS." and the heading
+"INDEX" of the next page, as printed on that side.
 
 A word that the printer broke with a hyphen at a line end is made whole on
 the first line, and the hyphen is removed. Every other line break stays, so

@@ -7,7 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from verso.manifest import MANIFEST_NAME, ManifestError, read_columns
+from verso.manifest import (
+    MANIFEST_NAME,
+    Column,
+    Columns,
+    ManifestError,
+    read_columns,
+    until,
+)
 
 
 def write_manifest(directory: Path, rows: list[dict]) -> None:
@@ -108,3 +115,54 @@ def test_missing_image_is_an_error(tmp_path: Path) -> None:
     (tmp_path / "p0004-verso-c0.png").unlink()
     with pytest.raises(ManifestError, match="missing"):
         read_columns(tmp_path)
+
+
+def found_columns() -> Columns:
+    """Make the columns of three spreads, with an error on page 11.
+
+    Returns:
+        The columns in reading order.
+    """
+    columns = [
+        Column(
+            label=f"p{page:04d}-{side}-c{number}",
+            image=Path("unused.png"),
+            page=page,
+            side=side,
+            column=number,
+            dpi=300,
+        )
+        for page in (9, 10, 12)
+        for side in ("verso", "recto")
+        for number in (0, 1)
+    ]
+    return Columns(columns=columns, errors=[11])
+
+
+def test_until_keeps_the_columns_up_to_a_side() -> None:
+    """Check that the run stops after both columns of the given side."""
+    kept = until(found_columns(), "p0010-verso")
+    labels = [c.label for c in kept.columns]
+    assert labels == [
+        "p0009-verso-c0",
+        "p0009-verso-c1",
+        "p0009-recto-c0",
+        "p0009-recto-c1",
+        "p0010-verso-c0",
+        "p0010-verso-c1",
+    ]
+    assert kept.errors == []
+
+
+def test_until_keeps_error_pages_before_the_end() -> None:
+    """Check that an error page before the last side stays reported."""
+    kept = until(found_columns(), "p0012-verso")
+    assert kept.errors == [11]
+    assert kept.columns[-1].label == "p0012-verso-c1"
+
+
+@pytest.mark.parametrize("last", ["p0010", "page10-verso", "p0011-verso"])
+def test_until_refuses_a_side_it_cannot_find(last: str) -> None:
+    """Check a bad label, and a side with no columns."""
+    with pytest.raises(ManifestError):
+        until(found_columns(), last)
