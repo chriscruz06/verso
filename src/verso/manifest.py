@@ -114,6 +114,43 @@ def read_columns(directory: Path) -> Columns:
     return result
 
 
+
+def _side(label: str) -> tuple[int, int]:
+    """Give the reading order key of a page side.
+
+    Args:
+        label: A page side, for example p0036-verso.
+
+    Returns:
+        The page and the side order.
+
+    Raises:
+        ManifestError: If the label is not a page side.
+    """
+    match = re.fullmatch(r"p(\d+)-(verso|recto)", label)
+    if match is None:
+        raise ManifestError(f"{label} is not a page side, for example p0036-verso")
+    return int(match.group(1)), SIDE_ORDER[match.group(2)]
+
+
+def _check_side(columns: list[Column], label: str, key: tuple[int, int]) -> None:
+    """Make sure that a page side has a column image.
+
+    A side with no columns is blank or was not done, so the run would start
+    or end at another place than the one given.
+
+    Args:
+        columns: The columns kept.
+        label: The page side, for the error message.
+        key: Its reading order key.
+
+    Raises:
+        ManifestError: If no column is on that side.
+    """
+    if not any((c.page, SIDE_ORDER[c.side]) == key for c in columns):
+        raise ManifestError(f"{label} has no column image in the manifest")
+
+
 def until(found: Columns, last: str) -> Columns:
     """Keep the columns up to the end of one page side.
 
@@ -131,13 +168,30 @@ def until(found: Columns, last: str) -> Columns:
     Raises:
         ManifestError: If last is not a page side, or if it has no columns.
     """
-    match = re.fullmatch(r"p(\d+)-(verso|recto)", last)
-    if match is None:
-        raise ManifestError(f"{last} is not a page side, for example p0036-verso")
-    end = (int(match.group(1)), SIDE_ORDER[match.group(2)])
+    end = _side(last)
     columns = [c for c in found.columns if (c.page, SIDE_ORDER[c.side]) <= end]
-    # A side with no columns is blank or was not done, so the run would end
-    # at another place than the one given.
-    if not any((c.page, SIDE_ORDER[c.side]) == end for c in columns):
-        raise ManifestError(f"{last} has no column image in the manifest")
+    _check_side(columns, last, end)
     return Columns(columns=columns, errors=[p for p in found.errors if p <= end[0]])
+
+
+def since(found: Columns, first: str) -> Columns:
+    """Keep the columns from the start of one page side.
+
+    In part 3, In Apocalypsim starts on p0061-recto, after the indexes of
+    Super Iohannem.
+
+    Args:
+        found: The columns and the error pages, from read_columns.
+        first: The first page side to keep, for example p0061-recto.
+
+    Returns:
+        The columns from and including those of that side, and the error
+        pages from and including its page.
+
+    Raises:
+        ManifestError: If first is not a page side, or if it has no columns.
+    """
+    start = _side(first)
+    columns = [c for c in found.columns if (c.page, SIDE_ORDER[c.side]) >= start]
+    _check_side(columns, first, start)
+    return Columns(columns=columns, errors=[p for p in found.errors if p >= start[0]])

@@ -22,7 +22,7 @@ from verso import __version__
 from verso.cer import LineScore, Total, score_line, total
 from verso.groundtruth import draft
 from verso.longs import LongS, LongSError, default_keep, extract_words
-from verso.manifest import Column, ManifestError, read_columns, until
+from verso.manifest import Column, ManifestError, read_columns, since, until
 from verso.reader import pending, read_part
 from verso.tesseract import read_line
 from verso.transcription import TranscriptionError, read_record
@@ -322,6 +322,12 @@ def cer_command(
     help="Columns read at the same time. Defaults to the number of CPUs.",
 )
 @click.option(
+    "--first",
+    metavar="SIDE",
+    default=None,
+    help="Read only from the start of this page side, for example p0061-recto.",
+)
+@click.option(
     "--last",
     metavar="SIDE",
     default=None,
@@ -333,6 +339,7 @@ def read_command(
     dest: Path | None,
     lang: str,
     jobs: int | None,
+    first: str | None,
     last: str | None,
     long_s: bool,
 ) -> None:
@@ -342,12 +349,15 @@ def read_command(
     The text keeps the printed lines, with a marker line before each column.
     A word broken by a hyphen at a line end is joined on the first line.
     Then each long s that Tesseract read as f is changed back to s, unless
-    --no-long-s is given. Give --last to stop at the end of one work.
+    --no-long-s is given. Give --first and --last to read one work of a
+    part that holds more than one.
     The text of each finished column is kept in work, so a stopped run goes
     on where it stopped. Delete that folder to read every column again.
     """
     try:
         found = read_columns(out_dir)
+        if first is not None:
+            found = since(found, first)
         if last is not None:
             found = until(found, last)
         tesseract = find_tesseract()
@@ -388,7 +398,8 @@ def read_command(
         finished += 1
         click.echo(f"  {column.label}  ({finished} of {len(todo)})")
 
-    scope = f" up to the end of {last}" if last is not None else ""
+    scope = f" from the start of {first}" if first is not None else ""
+    scope += f" up to the end of {last}" if last is not None else ""
     click.echo(f"{len(found.columns)} columns{scope}, {len(todo)} to read; cache {cache}")
     try:
         text, progress = read_part(

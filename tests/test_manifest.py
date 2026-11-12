@@ -13,6 +13,7 @@ from verso.manifest import (
     Columns,
     ManifestError,
     read_columns,
+    since,
     until,
 )
 
@@ -166,3 +167,38 @@ def test_until_refuses_a_side_it_cannot_find(last: str) -> None:
     """Check a bad label, and a side with no columns."""
     with pytest.raises(ManifestError):
         until(found_columns(), last)
+
+
+def test_since_keeps_the_columns_from_a_side() -> None:
+    """Check that the run starts with both columns of the given side."""
+    kept = since(found_columns(), "p0010-recto")
+    labels = [c.label for c in kept.columns]
+    assert labels == [
+        "p0010-recto-c0",
+        "p0010-recto-c1",
+        "p0012-verso-c0",
+        "p0012-verso-c1",
+        "p0012-recto-c0",
+        "p0012-recto-c1",
+    ]
+    assert kept.errors == [11]
+
+
+def test_since_and_until_keep_the_sides_between() -> None:
+    """Check one work in the middle of a part, and an empty range."""
+    kept = until(since(found_columns(), "p0009-recto"), "p0010-verso")
+    assert [c.label for c in kept.columns] == [
+        "p0009-recto-c0",
+        "p0009-recto-c1",
+        "p0010-verso-c0",
+        "p0010-verso-c1",
+    ]
+    with pytest.raises(ManifestError):
+        until(since(found_columns(), "p0010-recto"), "p0009-verso")
+
+
+@pytest.mark.parametrize("first", ["p0010", "p0011-recto"])
+def test_since_refuses_a_side_it_cannot_find(first: str) -> None:
+    """Check a bad label, and a side with no columns."""
+    with pytest.raises(ManifestError):
+        since(found_columns(), first)

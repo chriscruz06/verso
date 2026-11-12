@@ -162,18 +162,23 @@ again, for example after a change to the reading, delete that folder.
 The model is in the names of the cache folder and the text file, so the
 output of two models stays apart.
 
-A part can hold more than one work. Give `--last` to stop at the end of one
-page side:
+A part can hold more than one work. Give `--first` and `--last` to read only
+the page sides from one side to another, and `--dest` to give the text its
+own file:
 
 ```powershell
 verso read ..\recto\out\part3 --last p0036-verso
+verso read ..\recto\out\part3 --first p0061-recto --dest work\part3-apoc-lat.txt
+verso read ..\recto\out\part4
 ```
 
-Super Iohannem ends on part 3 p0036-verso, with "FINIS" across its two
-columns. The indexes and In Apocalypsim come after it, and part 4 holds the
-rest of In Apocalypsim. The side must have a column image, so a blank side
-is refused. The last lines of the text are "FIN", "IS." and the heading
-"INDEX" of the next page, as printed on that side.
+Volume 11 holds two commentaries. Super Iohannem fills parts 1 and 2 and
+ends on part 3 p0036-verso, with "FINIS" across its two columns. Its
+indexes follow. In Apocalypsim starts on part 3 p0061-recto with its own
+title page, and it fills part 4, which ends with its index of Scripture
+passages. Each side given must have a column image, so a blank side is
+refused. The line finder gives no line for "FINIS" or for the heading
+"INDEX" under it, so the text of part 3 ends with "Amen.".
 
 A word that the printer broke with a hyphen at a line end is made whole on
 the first line, and the hyphen is removed. Every other line break stays, so
