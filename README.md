@@ -16,8 +16,8 @@ translation is a separate, later stage.
 
 Verso can make the ground truth, a sample of line images with OCR drafts to
 correct by hand, and it can measure the character error rate of Tesseract on
-it. It can read a whole part into one text file. Joining the words that are
-broken by a hyphen at a line end is the next step.
+it. It can read a whole part into one text file, and join the words that are
+broken by a hyphen at a line end.
 
 ## Install
 
@@ -156,6 +156,19 @@ again, for example after a change to the reading, delete that folder.
 
 The model is in the names of the cache folder and the text file, so the
 output of two models stays apart.
+
+A word that the printer broke with a hyphen at a line end is made whole on
+the first line, and the hyphen is removed. Every other line break stays, so
+each line of text still matches one line of type, except that its last word
+can be whole. The join goes past column and page markers. If the rest of the
+word was the only word of its line, that line is removed. One or two specks
+after the hyphen, for example `coi- |` or `Areopagi--`, are removed too. A
+break is not joined when the next line is `{?}`, when a page that recto could
+not do comes between, or at the end of the text. Its hyphen then stays.
+
+The cache keeps the lines as Tesseract read them, with the hyphens. The joins
+are made each time the text is put together, so a change to them needs no new
+OCR run. On part 1, 5523 words were joined and 84 lines were removed.
 
 ## Measurements
 

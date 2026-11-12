@@ -293,6 +293,7 @@ def read_command(
 
     OUT_DIR is a folder that recto run wrote, for example ..\\recto\\out\\part1.
     The text keeps the printed lines, with a marker line before each column.
+    A word broken by a hyphen at a line end is joined on the first line.
     The text of each finished column is kept in work, so a stopped run goes
     on where it stopped. Delete that folder to read every column again.
     """
@@ -347,6 +348,12 @@ def read_command(
     click.echo(
         f"{progress.read} columns read, {progress.cached} from the cache, "
         f"{progress.lines} lines, in {target}"
+    )
+    joins = progress.joins
+    click.echo(
+        f"{joins.joined} words joined across a line end, "
+        f"{joins.removed} lines left empty and removed, "
+        f"{joins.kept} breaks not joined"
     )
     if found.errors:
         pages = ", ".join(str(p) for p in found.errors)

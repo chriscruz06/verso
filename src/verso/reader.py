@@ -36,6 +36,7 @@ import numpy as np
 from recto.pngio import read_png
 
 from verso.cer import normalise
+from verso.hyphens import Joins, join_hyphens
 from verso.lines import cut_line, find_lines
 from verso.manifest import SIDE_ORDER, Column, Columns
 
@@ -48,6 +49,9 @@ EMPTY_LINE = "{?}"
 MARKER = "=== {} ==="
 """The marker line before each column, or for a page with an error."""
 
+GAP = "p{:04d} not read by recto"
+"""The label of the marker for a page that recto could not do."""
+
 
 def marker(label: str) -> str:
     """Give the marker line for a label.
@@ -59,6 +63,30 @@ def marker(label: str) -> str:
         The marker line.
     """
     return MARKER.format(label)
+
+
+def is_marker(line: str) -> bool:
+    """Tell if a line is a marker line.
+
+    Args:
+        line: A line of the text.
+
+    Returns:
+        True for a marker line.
+    """
+    return line.startswith("=== ") and line.endswith(" ===")
+
+
+def is_gap(line: str) -> bool:
+    """Tell if a line is the marker of a page that recto could not do.
+
+    Args:
+        line: A line of the text.
+
+    Returns:
+        True for such a marker.
+    """
+    return is_marker(line) and line.endswith(" not read by recto ===")
 
 
 def read_column(column: Column, read: LineReader) -> list[str]:
@@ -135,8 +163,13 @@ class Progress:
     """Columns taken from the cache."""
 
     lines: int = 0
+    """Lines of type, before the joins."""
+
     empty: list[str] = field(default_factory=list)
     """The column labels and line numbers of lines with no OCR text."""
+
+    joins: Joins = field(default_factory=Joins)
+    """The words joined across line ends."""
 
 
 def read_part(
@@ -211,18 +244,21 @@ def _order(found: Columns) -> Iterable[tuple[str, Column | None]]:
     ]
     # An error page has no sides, so its marker goes before the columns of
     # that page, which recto did not write.
-    keyed += [((p, -1, 0), f"p{p:04d} not read by recto", None) for p in found.errors]
+    keyed += [((p, -1, 0), GAP.format(p), None) for p in found.errors]
     for _, label, column in sorted(keyed, key=lambda item: item[0]):
         yield label, column
 
 
 def assemble(found: Columns, cache: Path, progress: Progress) -> str:
-    """Put the text of a part together from the cache.
+    """Put the text of a part together from the cache, and join broken words.
+
+    The cache keeps the lines as Tesseract read them. The joins are made only
+    here, so a change to them does not need a new OCR run.
 
     Args:
         found: The columns and the error pages.
         cache: The cache folder. It must hold a file for each column.
-        progress: Gets the line count and the empty lines.
+        progress: Gets the line count, the empty lines and the joins.
 
     Returns:
         The text of the part.
@@ -241,4 +277,9 @@ def assemble(found: Columns, cache: Path, progress: Progress) -> str:
                 progress.empty.append(f"{column.label} line {number}")
         progress.lines += len(texts)
         out.extend(texts)
+    out, progress.joins = join_hyphens(
+        out,
+        is_marker=is_marker,
+        stops=lambda line: line == EMPTY_LINE or is_gap(line),
+    )
     return "\n".join(out) + "\n"
