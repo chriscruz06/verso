@@ -26,12 +26,25 @@ fons
 fontem
 fieri
 fiat
+fama
+fame
+fel
+fellis
+fere
+fias
+fient
+fortem
+fortes
+fortis
+futura
+flat
 
 # Both forms are common Latin. One word alone does not show which is printed.
 fine
 fit
 forte
 fui
+fumo
 fumus
 
 # Marked real f in the review of the 400 most frequent changes in part 1,
@@ -43,7 +56,11 @@ fiet
 fontes
 foris
 
-# Damaged readings of facta and factum, with the ct ligature lost. The f form
-# is nearer to the printed word than the s form.
+# Damaged readings of facta, factum and factura, with the ct ligature lost.
+# The f form is nearer to the printed word than the s form.
 fata
 fatum
+fatura
+
+# Damaged reading of fiunt, with the n lost.
+fiut

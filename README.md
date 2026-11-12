@@ -214,8 +214,8 @@ to it on a line of its own. Give `--no-long-s` to keep every f as read.
 
 Known limits: a word with two long s, where the list holds a form with only
 one of them changed, keeps one f ("scripfit"). A word with a second OCR
-error keeps that error ("cft" becomes "cst"). On part 1, 14086 words are
-changed.
+error keeps that error ("cft" becomes "cst"). `verso read` reports the
+number of words changed.
 
 ## Measurements
 
