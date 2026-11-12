@@ -124,7 +124,10 @@ characters of the transcription. The distances and the lengths of all lines
 are added up before the division. Before the comparison, both texts get the
 same normalisation: Unicode NFC, one space between words, and no space before
 `, . : ; ? ! ) ]` or after `( [`. The rules do not record those spaces.
-Nothing else is changed, so a long s read as f is an error.
+
+By default, each line first gets the f to s change of `verso read` (see
+below), so the CER is that of the text that `verso read` writes. Give
+`--no-long-s` to measure Tesseract alone. Nothing else is changed.
 
 Each run first checks that every `.gt.txt` file holds exactly the text of its
 row in `transcription.tsv`. A test does the same check on the committed part 1
@@ -170,6 +173,30 @@ The cache keeps the lines as Tesseract read them, with the hyphens. The joins
 are made each time the text is put together, so a change to them needs no new
 OCR run. On part 1, 5523 words were joined and 84 lines were removed.
 
+After the joins, each long s that Tesseract read as f is changed back to s.
+The stock `lat` model reads nearly every long s as f: in part 1, "eft" occurs
+1808 times and "est" once. Thus the text itself cannot show the correct
+forms. The word list comes from the dictionary in the model that reads the
+text. `combine_tessdata` and `dawg2wordlist` extract it at the start of each
+run. They must be next to `tesseract.exe` or on PATH. The Windows installer
+puts them next to `tesseract.exe`.
+
+That dictionary holds many misreads too, for example "eft" and "nifi". Thus
+a word changes if a form of it with one or more f changed to s is in the
+list, and the form with the fewest changes is used. A word that touches a
+hyphen or `&` is a part of a word, and it stays as read.
+
+Some real f words have an s form in the list, for example Filius and the
+name Silius, or fuit and the English word suit. Those words are in
+`src\verso\longs_keep.txt`, and they stay as read. That file also holds
+pairs where both forms are common Latin, for example fit and sit. Add a word
+to it on a line of its own. Give `--no-long-s` to keep every f as read.
+
+Known limits: a word with two long s, where the list holds a form with only
+one of them changed, keeps one f ("scripfit"). A word with a second OCR
+error keeps that error ("cft" becomes "cst"). On part 1, 14086 words are
+changed.
+
 ## Measurements
 
 All numbers are for the 99 part 1 ground truth lines, read with the stock
@@ -180,6 +207,7 @@ to the reading is judged against the last row.
 |---|---|---|
 | Mode 7 for each line | 21.03 % (937 of 4456) | 18.26 % (633 of 3466) |
 | Mode 7, then mode 13 if empty | 17.93 % (799 of 4456) | 15.18 % (526 of 3466) |
+| Same, then f to s with the model's word list | 16.65 % (742 of 4456) | 13.85 % (480 of 3466) |
 
 Mode 7 gave no text for 5 lines. Three were clean lines, which mode 13 read.
 The other two are lines where the other side of the leaf shows through, and
@@ -191,6 +219,9 @@ of the transcription. That is about 2.6 points of CER. The other errors are
 mostly single letters lost or changed by the damage of the scan, for example
 a lost space (34), u read as a (19), a full stop read as a comma (18), and æ
 read as e (17).
+
+The f to s change takes the long s errors from 116 to 58, and it changes one
+real f to s: "af-", where the hyphen was read as a full stop.
 
 ## Tests
 

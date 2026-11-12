@@ -21,6 +21,7 @@ from recto.pngio import read_png
 from verso import __version__
 from verso.cer import LineScore, Total, score_line, total
 from verso.groundtruth import draft
+from verso.longs import LongS, LongSError, default_keep, extract_words
 from verso.manifest import Column, ManifestError, read_columns
 from verso.reader import pending, read_part
 from verso.tesseract import read_line
@@ -31,6 +32,38 @@ CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 
 GROUND_TRUTH_DIR = Path("groundtruth")
 """Where verso lines writes, one folder for each recto output folder."""
+
+LONG_S_OPTION = click.option(
+    "--long-s/--no-long-s",
+    "long_s",
+    default=True,
+    show_default=True,
+    help="Change long s read as f back to s, with the word list of the model.",
+)
+
+
+def _long_s(enabled: bool, tesseract: str, lang: str) -> LongS | None:
+    """Make the f to s change for a run.
+
+    Args:
+        enabled: The value of --long-s.
+        tesseract: The path of the tesseract program.
+        lang: The Tesseract language.
+
+    Returns:
+        The change, or None if it is not enabled.
+
+    Raises:
+        click.ClickException: If the word list cannot be made.
+    """
+    if not enabled:
+        return None
+    with tempfile.TemporaryDirectory(prefix="verso-") as work:
+        try:
+            words = extract_words(tesseract, lang, Path(work))
+        except LongSError as exc:
+            raise click.ClickException(f"{exc}; give --no-long-s to read without it") from exc
+    return LongS(words=words, keep=default_keep())
 
 
 @click.group(context_settings=CONTEXT_SETTINGS)
@@ -197,6 +230,7 @@ def _summary(label: str, part: Total) -> str:
     show_default=True,
     help="How many of the most frequent errors to list.",
 )
+@LONG_S_OPTION
 @click.option(
     "--report",
     type=click.Path(dir_okay=False, path_type=Path),
@@ -208,6 +242,7 @@ def cer_command(
     lang: str,
     dpi: int,
     top: int,
+    long_s: bool,
     report: Path | None,
 ) -> None:
     """Measure the character error rate of Tesseract on the ground truth.
@@ -221,6 +256,7 @@ def cer_command(
         tesseract = find_tesseract()
     except (TranscriptionError, TesseractError) as exc:
         raise click.ClickException(str(exc)) from exc
+    fix = _long_s(long_s, tesseract, lang)
 
     scores: list[LineScore] = []
     with tempfile.TemporaryDirectory(prefix="verso-") as work:
@@ -233,6 +269,8 @@ def cer_command(
                     dpi=dpi,
                     workdir=Path(work),
                 )
+                if fix is not None:
+                    text, _ = fix.line(text)
                 scores.append(score_line(entry, text))
         except RuntimeError as exc:
             # TesseractError is a RuntimeError, and so is a failed image read.
@@ -283,17 +321,21 @@ def cer_command(
     default=None,
     help="Columns read at the same time. Defaults to the number of CPUs.",
 )
+@LONG_S_OPTION
 def read_command(
     out_dir: Path,
     dest: Path | None,
     lang: str,
     jobs: int | None,
+    long_s: bool,
 ) -> None:
     """Read every column of a recto output folder into one text file.
 
     OUT_DIR is a folder that recto run wrote, for example ..\\recto\\out\\part1.
     The text keeps the printed lines, with a marker line before each column.
     A word broken by a hyphen at a line end is joined on the first line.
+    Then each long s that Tesseract read as f is changed back to s, unless
+    --no-long-s is given.
     The text of each finished column is kept in work, so a stopped run goes
     on where it stopped. Delete that folder to read every column again.
     """
@@ -302,6 +344,9 @@ def read_command(
         tesseract = find_tesseract()
     except (ManifestError, TesseractError) as exc:
         raise click.ClickException(str(exc)) from exc
+    # Before the OCR run, so that a missing program stops the run at once,
+    # not after half an hour of reading.
+    fix = _long_s(long_s, tesseract, lang)
 
     name = out_dir.resolve().name
     # The language is in the folder name, so a run with another model does
@@ -337,7 +382,12 @@ def read_command(
     click.echo(f"{len(found.columns)} columns, {len(todo)} to read; cache {cache}")
     try:
         text, progress = read_part(
-            found, cache=cache, read=read, jobs=jobs or os.cpu_count() or 1, done=done
+            found,
+            cache=cache,
+            read=read,
+            jobs=jobs or os.cpu_count() or 1,
+            done=done,
+            long_s=fix,
         )
     except RuntimeError as exc:
         # TesseractError is a RuntimeError, and so is a failed image read.
@@ -355,6 +405,8 @@ def read_command(
         f"{joins.removed} lines left empty and removed, "
         f"{joins.kept} breaks not joined"
     )
+    if fix is not None:
+        click.echo(f"{progress.long_s} words changed from f to s")
     if found.errors:
         pages = ", ".join(str(p) for p in found.errors)
         click.echo(f"pages that recto could not do: {pages}")

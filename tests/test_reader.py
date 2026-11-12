@@ -9,8 +9,9 @@ import pytest
 from recto.pngio import write_png
 
 from conftest import LINES, make_column
+from verso.longs import LongS
 from verso.manifest import Column, Columns
-from verso.reader import EMPTY_LINE, marker, pending, read_part
+from verso.reader import EMPTY_LINE, Progress, assemble, marker, pending, read_part
 
 
 def a_column(directory: Path, page: int, side: str, number: int) -> Column:
@@ -164,3 +165,28 @@ def test_jobs_must_be_at_least_one(tmp_path: Path) -> None:
     """Check that a run with no workers is refused."""
     with pytest.raises(ValueError):
         read_part(Columns(), cache=tmp_path, read=Counter(), jobs=0)
+
+
+def test_long_s_is_changed_after_the_joins(tmp_path: Path) -> None:
+    """Check that a word broken at a line end is changed when it is whole."""
+    column = Column(
+        label="p0009-verso-c0",
+        image=tmp_path / "unused.png",
+        page=9,
+        side="verso",
+        column=0,
+        dpi=300,
+    )
+    found = Columns(columns=[column])
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    (cache / f"{column.label}.txt").write_text("ne-\nceffe eft fuit\n", encoding="utf-8")
+    fix = LongS(words=frozenset({"necesse", "est", "suit"}), keep=frozenset({"fuit"}))
+
+    progress = Progress()
+    text = assemble(found, cache, progress, fix)
+    assert text.splitlines() == [marker("p0009-verso-c0"), "necesse", "est fuit"]
+    assert progress.long_s == 2
+
+    plain = assemble(found, cache, Progress())
+    assert plain.splitlines()[1:] == ["neceffe", "eft fuit"]

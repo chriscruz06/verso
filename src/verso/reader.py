@@ -38,6 +38,7 @@ from recto.pngio import read_png
 from verso.cer import normalise
 from verso.hyphens import Joins, join_hyphens
 from verso.lines import cut_line, find_lines
+from verso.longs import LongS
 from verso.manifest import SIDE_ORDER, Column, Columns
 
 LineReader = Callable[[np.ndarray, int, Path], str]
@@ -171,6 +172,9 @@ class Progress:
     joins: Joins = field(default_factory=Joins)
     """The words joined across line ends."""
 
+    long_s: int = 0
+    """The words changed from f to s."""
+
 
 def read_part(
     found: Columns,
@@ -179,6 +183,7 @@ def read_part(
     read: LineReader,
     jobs: int,
     done: Callable[[Column], None] = lambda column: None,
+    long_s: LongS | None = None,
 ) -> tuple[str, Progress]:
     """Read every column of a part, and put the text together.
 
@@ -190,6 +195,7 @@ def read_part(
         jobs: The number of columns read at the same time.
         done: Called after each column is read, in the order they finish,
             on the thread that called read_part.
+        long_s: The f to s change, or None to keep each f as read.
 
     Returns:
         The text of the part, and what the run did.
@@ -226,7 +232,7 @@ def read_part(
             done(future.result())
             progress.read += 1
 
-    return assemble(found, cache, progress), progress
+    return assemble(found, cache, progress, long_s), progress
 
 
 def _order(found: Columns) -> Iterable[tuple[str, Column | None]]:
@@ -249,16 +255,24 @@ def _order(found: Columns) -> Iterable[tuple[str, Column | None]]:
         yield label, column
 
 
-def assemble(found: Columns, cache: Path, progress: Progress) -> str:
-    """Put the text of a part together from the cache, and join broken words.
+def assemble(
+    found: Columns,
+    cache: Path,
+    progress: Progress,
+    long_s: LongS | None = None,
+) -> str:
+    """Put the text of a part together from the cache, and correct it.
 
-    The cache keeps the lines as Tesseract read them. The joins are made only
-    here, so a change to them does not need a new OCR run.
+    The cache keeps the lines as Tesseract read them. The hyphen joins and
+    the f to s change are made only here, so a change to them does not need
+    a new OCR run.
 
     Args:
         found: The columns and the error pages.
         cache: The cache folder. It must hold a file for each column.
-        progress: Gets the line count, the empty lines and the joins.
+        progress: Gets the line count, the empty lines, the joins and the
+            f to s changes.
+        long_s: The f to s change, or None to keep each f as read.
 
     Returns:
         The text of the part.
@@ -282,4 +296,10 @@ def assemble(found: Columns, cache: Path, progress: Progress) -> str:
         is_marker=is_marker,
         stops=lambda line: line == EMPTY_LINE or is_gap(line),
     )
+    if long_s is not None:
+        # After the joins, so that a word broken at a line end is whole.
+        for index, line in enumerate(out):
+            if not is_marker(line):
+                out[index], changed = long_s.line(line)
+                progress.long_s += changed
     return "\n".join(out) + "\n"

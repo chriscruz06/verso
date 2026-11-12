@@ -42,6 +42,10 @@ verso = "verso.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# The keep list of the f to s change is read at run time.
+[tool.setuptools.package-data]
+verso = ["longs_keep.txt"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"

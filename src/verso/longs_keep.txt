@@ -1,0 +1,49 @@
+# Words that verso does not change from f to s.
+#
+# Each word is a real Latin f word, and its s form is in the word list of the
+# lat model. Write one word on each line, in any case. A line that starts
+# with # is a comment.
+
+# Real f words whose s form is a name or an English word in the list.
+fili
+filia
+filii
+filiis
+filij
+filio
+filiorum
+filios
+filium
+filius
+fuit
+fuerunt
+fide
+fidei
+fidem
+fides
+finis
+fons
+fontem
+fieri
+fiat
+
+# Both forms are common Latin. One word alone does not show which is printed.
+fine
+fit
+forte
+fui
+fumus
+
+# Marked real f in the review of the 400 most frequent changes in part 1,
+# 12 November 2026.
+fac
+fenum
+ficat
+fiet
+fontes
+foris
+
+# Damaged readings of facta and factum, with the ct ligature lost. The f form
+# is nearer to the printed word than the s form.
+fata
+fatum
